@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plataforma Inducción — Grupo Minero Las Cenizas · by Tecktur SpA.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;500;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;1,400&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body, #root { height: 100%; }
+body { background: #0C1520; color: #EDE8E2; font-family: 'DM Sans', sans-serif; font-size: 15px; line-height: 1.5; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #121E2E; }
+::-webkit-scrollbar-thumb { background: #2E4160; border-radius: 4px; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.fadein { animation: fadeUp .22s ease both; }
+
+/* Tweaks panel */
+#tweaks-panel {
+  display: none; position: fixed; bottom: 24px; right: 24px; z-index: 9999;
+  background: #182436; border: 1px solid #2E4160; border-radius: 14px;
+  padding: 22px; width: 270px; box-shadow: 0 12px 48px rgba(0,0,0,.7);
+}
+#tweaks-panel.open { display: block; }
+#tweaks-panel h4 { font-family: 'Barlow Condensed', sans-serif; font-size: 16px;
+  letter-spacing: .07em; color: #D4924A; margin-bottom: 18px; text-transform: uppercase; }
+.tw-label { font-size: 10px; text-transform: uppercase; letter-spacing: .09em;
+  color: #6B7E95; display: block; margin-bottom: 7px; }
+.tw-row { margin-bottom: 16px; }
+.tw-seg { display: flex; gap: 5px; }
+.tw-seg button { flex: 1; padding: 8px 4px; background: #1E2D42; border: 1px solid #243348;
+  color: #6B7E95; border-radius: 7px; font-size: 12px; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; transition: all .18s; }
+.tw-seg button.on { background: #C4742A; border-color: #C4742A; color: #fff; font-weight: 600; }
+.tw-divider { height: 1px; background: #243348; margin: 14px 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="components/Shared.jsx"></script>
+<script type="text/babel" src="components/Login.jsx"></script>
+<script type="text/babel" src="components/Tutorial.jsx"></script>
+<script type="text/babel" src="components/CourseModule.jsx"></script>
+<script type="text/babel" src="components/Quiz.jsx"></script>
+<script type="text/babel" src="components/Admin.jsx"></script>
+<script type="text/babel" src="components/Repository.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "courseStyle": "aula",
+  "startAs": "login",
+  "demoRole": "alumno"
+}/*EDITMODE-END*/;
+
+const COPPER = '#C4742A';
+
+/* ── LAYOUT SHELL ── */
+const Shell = ({ screen, onNav, role, children }) => {
+  const { C, Badge, Icon } = window;
+  const adminLinks = [
+    { id: 'admin',          label: 'Tablero',        icon: 'chart' },
+    { id: 'admin_users',    label: 'Alumnos',        icon: 'users' },
+    { id: 'admin_email',    label: 'Inscripción',    icon: 'mail' },
+    { id: 'admin_questions',label: 'Banco Preguntas',icon: 'doc' },
+    { id: 'repository',     label: 'Repositorio',    icon: 'folder' },
+    { id: 'settings',       label: 'Configuración',  icon: 'settings' },
+  ];
+  const alumnoLinks = [
+    { id: 'dashboard',  label: 'Mis Cursos',    icon: 'book' },
+    { id: 'course',     label: 'Módulos Activos', icon: 'play' },
+    { id: 'quiz',       label: 'Evaluación',    icon: 'shield' },
+    { id: 'certificate',label: 'Certificados',  icon: 'award' },
+  ];
+  const links = role === 'admin' ? adminLinks : alumnoLinks;
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      {/* Sidebar */}
+      <aside style={{
+        width: 230, background: C.surface, borderRight: `1px solid ${C.border}`,
+        display: 'flex', flexDirection: 'column', flexShrink: 0, overflow: 'hidden',
+      }}>
+        {/* Brand */}
+        <div style={{ padding: '22px 20px 18px', borderBottom: `1px solid ${C.border}`, textAlign: 'center' }}>
+          <img src="assets/logo-lc.png" alt="Grupo Minero Las Cenizas"
+            style={{ width: 195, display: 'block', margin: '0 auto 10px' }} />
+        </div>
+
+        {/* Role badge */}
+        <div style={{ padding: '12px 20px 0' }}>
+          <Badge color={role === 'admin' ? COPPER : C.silver}>
+            {role === 'admin' ? '⚙ Administrador' : '👷 Alumno'}
+          </Badge>
+        </div>
+
+        {/* Nav */}
+        <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {links.map(l => {
+            const active = screen === l.id;
+            return (
+              <button key={l.id} onClick={() => onNav(l.id)} style={{
+                display: 'flex', alignItems: 'center', gap: 10, padding: '10px 12px',
+                borderRadius: 8, border: 'none', cursor: 'pointer',
+                background: active ? COPPER + '20' : 'transparent',
+                color: active ? '#D4924A' : C.silver,
+                fontFamily: "'DM Sans', sans-serif", fontSize: 13.5,
+                fontWeight: active ? 600 : 400, textAlign: 'left', transition: 'all .15s',
+              }}>
+                <Icon name={l.icon} size={15} color={active ? COPPER : C.textMuted} />
+                {l.label}
+                {active && <div style={{ marginLeft: 'auto', width: 5, height: 5, borderRadius: '50%', background: COPPER }} />}
+              </button>
+            );
+          })}
+        </nav>
+
+        {/* Bottom: user + tecktur logo */}
+        <div style={{ borderTop: `1px solid ${C.border}`, padding: '14px 14px 10px' }}>
+          <div style={{ fontSize: 12, color: C.textMuted, padding: '0 6px 8px' }}>
+            {role === 'admin' ? 'Admin GMLC' : 'Juan A. Pérez · 14.523.867-3'}
+          </div>
+          <button onClick={() => onNav('login')} style={{
+            display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', width: '100%',
+            borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent',
+            color: C.textMuted, fontSize: 13, fontFamily: "'DM Sans', sans-serif",
+          }}>
+            <Icon name="logout" size={14} color={C.textMuted} /> Cerrar sesión
+          </button>
+          <div style={{ marginTop: 10, borderTop: `1px solid ${C.border}`, paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+            <img src="assets/logo-tecktur.jpg" alt="Tecktur SpA." style={{ height: 40, borderRadius: 5, opacity: 0.85 }} />
+            <span style={{ fontSize: 13, color: '#6B8AAA', fontWeight: 500 }}>Tecktur SpA.</span>
+          </div>
+        </div>
+      </aside>
+
+      {/* Main content area */}
+      <main style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
+        {children}
+      </main>
+    </div>
+  );
+};
+
+/* ── QUESTIONS ADMIN SCREEN ── */
+const AdminQuestionsScreen = () => {
+  const { C, Btn, Card, Badge, Icon } = window;
+  const questions = [
+    { id: 1, q: '¿Cuál es el protocolo ante un derrumbe en faena subterránea?', curso: 'Mina Cabildo', activa: true },
+    { id: 2, q: 'El EPP básico obligatorio en zona subterránea incluye:', curso: 'Todos', activa: true },
+    { id: 3, q: '¿Qué significa la señal de advertencia con fondo amarillo?', curso: 'Todos', activa: true },
+    { id: 4, q: 'El bloqueo y etiquetado (LOTO) se aplica para:', curso: 'Planta Cabildo', activa: true },
+    { id: 5, q: '¿Con qué frecuencia se realizan los simulacros de evacuación?', curso: 'Todos', activa: false },
+  ];
+  return (
+    <div style={{ padding: 40, maxWidth: 860 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
+        <div>
+          <div style={{ fontSize: 11, color: COPPER, textTransform: 'uppercase', letterSpacing: '.1em', marginBottom: 4 }}>Evaluaciones</div>
+          <h1 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 34, fontWeight: 800, color: C.text }}>Banco de Preguntas</h1>
+          <p style={{ color: C.textMuted, fontSize: 13, marginTop: 4 }}>50 preguntas editables · 15 aleatorias por evaluación</p>
+        </div>
+        <Btn><Icon name="doc" size={15} color="white" /> Nueva pregunta</Btn>
+      </div>
+      <Card style={{ padding: 0, overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: C.surface3 }}>
+              {['#', 'Pregunta', 'Curso', 'Estado', 'Acciones'].map(h => (
+                <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontSize: 10, color: C.textMuted, textTransform: 'uppercase', letterSpacing: '.07em', fontWeight: 600 }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {questions.map((q, i) => (
+              <tr key={q.id} style={{ borderTop: `1px solid ${C.border}` }}>
+                <td style={{ padding: '12px 16px', fontSize: 13, color: C.textMuted, width: 40 }}>{q.id}</td>
+                <td style={{ padding: '12px 16px', fontSize: 13.5, color: C.text, maxWidth: 400 }}>{q.q}</td>
+                <td style={{ padding: '12px 16px' }}><Badge color={COPPER}>{q.curso}</Badge></td>
+                <td style={{ padding: '12px 16px' }}><Badge color={q.activa ? C.success : C.textMuted}>{q.activa ? 'Activa' : 'Inactiva'}</Badge></td>
+                <td style={{ padding: '12px 16px' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <Btn size="sm" variant="ghost">Editar</Btn>
+                    <Btn size="sm" variant="ghost">Eliminar</Btn>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ padding: '12px 16px', borderTop: `1px solid ${C.border}`, fontSize: 12, color: C.textMuted }}>
+          Mostrando 5 de 50 preguntas · <span style={{ color: COPPER, cursor: 'pointer' }}>Ver todas →</span>
+        </div>
+      </Card>
+    </div>
+  );
+};
+
+/* ── APP ROOT ── */
+const App = () => {
+  const saved = () => { try { return JSON.parse(localStorage.getItem('ind_tweaks') || 'null') || TWEAK_DEFAULTS; } catch { return TWEAK_DEFAULTS; } };
+  const [tweaks, setTweaks] = React.useState(saved);
+  const [tweakOpen, setTweakOpen] = React.useState(false);
+  const [screen, setScreen] = React.useState('login');
+  const [role, setRole] = React.useState('alumno');
+  const [tutorialDone, setTutorialDone] = React.useState(() => !!localStorage.getItem('ind_tutorial_seen'));
+
+  // Tweaks host protocol
+  React.useEffect(() => {
+    const h = (e) => {
+      if (e.data?.type === '__activate_edit_mode')   setTweakOpen(true);
+      if (e.data?.type === '__deactivate_edit_mode') setTweakOpen(false);
+    };
+    window.addEventListener('message', h);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', h);
+  }, []);
+
+  const setTweak = (k, v) => {
+    const next = { ...tweaks, [k]: v };
+    setTweaks(next);
+    localStorage.setItem('ind_tweaks', JSON.stringify(next));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits: { [k]: v } }, '*');
+  };
+
+  // Persist last screen
+  React.useEffect(() => {
+    if (screen !== 'login') localStorage.setItem('ind_last', screen);
+  }, [screen]);
+
+  const handleLogin = (detectedRole) => {
+    setRole(detectedRole);
+    if (detectedRole === 'admin') { setScreen('admin'); }
+    else if (!tutorialDone) { setScreen('tutorial'); }
+    else { setScreen('dashboard'); }
+  };
+
+  const nav = (s) => setScreen(s);
+
+  const handleTutorialDone = () => {
+    localStorage.setItem('ind_tutorial_seen', '1');
+    setTutorialDone(true);
+    setScreen('dashboard');
+  };
+
+  /* Screens without sidebar */
+  if (screen === 'login')    return <><LoginScreen onLogin={handleLogin} /><TweaksPanel open={tweakOpen} tweaks={tweaks} setTweak={setTweak} /></>;
+  if (screen === 'tutorial') return <TutorialScreen onDone={handleTutorialDone} />;
+
+  const renderMain = () => {
+    switch (screen) {
+      case 'dashboard':        return <DashboardScreen onNav={nav} courseStyle={tweaks.courseStyle} />;
+      case 'course':           return <CourseModule courseStyle={tweaks.courseStyle} onNav={nav} />;
+      case 'quiz':             return <QuizScreen onNav={nav} />;
+      case 'certificate':      return <CertificateScreen />;
+      case 'repository':       return <RepositoryScreen />;
+      case 'admin':            return <AdminDashboard onNav={nav} />;
+      case 'admin_users':      return <AdminUsers onNav={nav} />;
+      case 'admin_email':      return <AdminEmailFlow />;
+      case 'admin_questions':  return <AdminQuestionsScreen />;
+      case 'settings':         return <SettingsScreen />;
+      default: return <DashboardScreen onNav={nav} courseStyle={tweaks.courseStyle} />;
+    }
+  };
+
+  return (
+    <>
+      <Shell screen={screen} onNav={nav} role={role}>
+        <div className="fadein" key={screen}>
+          {renderMain()}
+        </div>
+      </Shell>
+      <TweaksPanel open={tweakOpen} tweaks={tweaks} setTweak={setTweak} />
+    </>
+  );
+};
+
+/* ── TWEAKS PANEL ── */
+const TweaksPanel = ({ open, tweaks, setTweak }) => (
+  <div id="tweaks-panel" className={open ? 'open' : ''}>
+    <h4>⚙ Tweaks</h4>
+
+    <div className="tw-row">
+      <span className="tw-label">Estilo de curso</span>
+      <div className="tw-seg">
+        {['aula','reel'].map(v => (
+          <button key={v} className={tweaks.courseStyle === v ? 'on' : ''} onClick={() => setTweak('courseStyle', v)}>
+            {v === 'aula' ? '🎓 Aula Virtual' : '📱 Reel'}
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div className="tw-divider" />
+
+    <div style={{ fontSize: 11, color: '#6B7E95', lineHeight: 1.6 }}>
+      <strong style={{ color: '#8A9BB0' }}>Demo rápida:</strong><br />
+      En el login, RUT comenzando en <strong style={{ color: COPPER }}>12…</strong> → Admin<br />
+      Cualquier otro RUT → Alumno
+    </div>
+
+    <div className="tw-divider" />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <img src="assets/logo-tecktur.jpg" alt="Tecktur SpA." style={{ height: 18, borderRadius: 3, opacity: 0.7 }} />
+      <span style={{ fontSize: 10, color: '#3E5570' }}>by Tecktur SpA.</span>
+    </div>
+  </div>
+);
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+.toggle {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.25s ease;
+  color: var(--text);
+}
+
+.toggle:hover {
+  background: var(--copper);
+  border-color: var(--copper);
+  transform: scale(1.08);
+}
+
+.toggle:active {
+  transform: scale(0.96);
+}
