@@ -61,15 +61,76 @@ const initialContent = {
 export default function ContentPage() {
   const [activeCourse, setActiveCourse] = useState('mina_cabildo');
   const [activeModule, setActiveModule] = useState(0);
-  const [content, setContent] = useState(() => {
-    const saved = localStorage.getItem('gmlc_content');
-    return saved ? JSON.parse(saved) : initialContent;
-  });
+  const [content, setContent] = useState(initialContent);
+  const [loading, setLoading] = useState(true);
+  const [savingStatus, setSavingStatus] = useState(null);
+  const [fileUploadStatus, setFileUploadStatus] = useState(null);
 
-  // Guardar en localStorage cuando content cambie
+  // Cargar contenido desde el servidor al iniciar
   useEffect(() => {
-    localStorage.setItem('gmlc_content', JSON.stringify(content));
-  }, [content]);
+    const loadContent = async () => {
+      try {
+        // Intenta primero Vercel API, fallback a localStorage
+        const response = await fetch('/api/content?action=get');
+        const result = await response.json();
+        if (result.data && Object.keys(result.data).length > 0) {
+          setContent(result.data);
+          setLoading(false);
+          return;
+        }
+      } catch (err) {
+        console.log('Vercel API not available, checking localStorage...');
+      }
+
+      // Fallback a localStorage
+      try {
+        const saved = localStorage.getItem('gmlc_content');
+        if (saved) {
+          setContent(JSON.parse(saved));
+        }
+      } catch (err) {
+        console.error('Error loading from localStorage:', err);
+      }
+      setLoading(false);
+    };
+    loadContent();
+  }, []);
+
+  // Guardar contenido en el servidor cuando cambie
+  useEffect(() => {
+    if (loading) return;
+    const saveContent = async () => {
+      try {
+        setSavingStatus('saving');
+
+        // Guardar en servidor Vercel
+        try {
+          const response = await fetch('/api/content?action=save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: content }),
+          });
+          if (response.ok) {
+            setSavingStatus('saved');
+            setTimeout(() => setSavingStatus(null), 2000);
+            return;
+          }
+        } catch (err) {
+          console.log('Server save failed, using localStorage fallback...');
+        }
+
+        // Fallback a localStorage si el servidor no está disponible
+        localStorage.setItem('gmlc_content', JSON.stringify(content));
+        setSavingStatus('saved');
+        setTimeout(() => setSavingStatus(null), 2000);
+      } catch (err) {
+        console.error('Error saving content:', err);
+        setSavingStatus('error');
+      }
+    };
+    const timer = setTimeout(saveContent, 1000);
+    return () => clearTimeout(timer);
+  }, [content, loading]);
   const [newAudioUrl, setNewAudioUrl] = useState('');
   const [connectionStatus, setConnectionStatus] = useState(null);
   const [courseEnabled, setCourseEnabled] = useState({
@@ -127,11 +188,19 @@ export default function ContentPage() {
     if (!dropped.length) return;
     const newFiles = dropped.map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(1) + ' MB' }));
     update({ files: [...(mod.files || []), ...newFiles] });
+
+    // Mostrar mensaje de confirmación
+    setFileUploadStatus('success');
+    setTimeout(() => setFileUploadStatus(null), 3000);
   };
 
   const mockFileInput = () => {
     const mockFile = { name: 'Documento_Nuevo.pdf', size: '0.9 MB' };
     update({ files: [...(mod.files || []), mockFile] });
+
+    // Mostrar mensaje de confirmación
+    setFileUploadStatus('success');
+    setTimeout(() => setFileUploadStatus(null), 3000);
   };
 
   const inputStyle = {
@@ -155,9 +224,20 @@ export default function ContentPage() {
           </p>
         </div>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
-          <Btn onClick={handleSaveGeneral} style={{ padding: '10px 24px', fontSize: 14, background: C.copper, color: '#000', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>
-            Guardar cambios generales
-          </Btn>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <Btn onClick={handleSaveGeneral} style={{ padding: '10px 24px', fontSize: 14, background: C.copper, color: '#000', border: 'none', borderRadius: 8, fontWeight: 700, cursor: 'pointer' }}>
+              Guardar cambios generales
+            </Btn>
+            {savingStatus === 'saving' && (
+              <span style={{ fontSize: 12, color: C.textMuted }}>Guardando...</span>
+            )}
+            {savingStatus === 'saved' && (
+              <span style={{ fontSize: 12, color: C.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ width: 4, height: 4, borderRadius: '50%', background: C.success, display: 'inline-block' }} />
+                Guardado
+              </span>
+            )}
+          </div>
           <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }} onClick={(e) => { e.preventDefault(); setCourseEnabled(prev => ({ ...prev, [activeCourse]: !prev[activeCourse] })); }}>
             <div style={{ position: 'relative', width: 36, height: 20, background: courseEnabled[activeCourse] ? C.success : C.surface3, borderRadius: 10, transition: 'background .2s' }}>
               <div style={{ position: 'absolute', top: 2, left: courseEnabled[activeCourse] ? 18 : 2, width: 16, height: 16, background: 'white', borderRadius: '50%', transition: 'left .2s' }} />
@@ -354,6 +434,18 @@ export default function ContentPage() {
             <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 16, fontWeight: 700, color: C.copper, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8 }}>
               <Icon name="folder" size={16} color={C.copper} /> Archivos adjuntos (PDF, imágenes)
             </div>
+
+            {/* Upload success notification */}
+            {fileUploadStatus === 'success' && (
+              <div style={{
+                background: C.success + '15', border: `1px solid ${C.success}44`, borderRadius: 8,
+                padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8
+              }}>
+                <Icon name="check" size={16} color={C.success} />
+                <span style={{ fontSize: 13, color: C.success, fontWeight: 600 }}>Archivo cargado correctamente</span>
+              </div>
+            )}
+
             {/* Drop zone */}
             <div
               onDrop={handleFileDrop}

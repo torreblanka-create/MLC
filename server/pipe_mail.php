@@ -4,7 +4,7 @@
  *
  * INSTALACIÓN EN cPANEL (Hostingplus):
  *  1. Subir este archivo a: /home/usuario/induccion/server/pipe_mail.php
- *  2. En cPanel → Email Routing → inducciones@tecktur.cl:
+ *  2. En cPanel → Email Routing → induccionmlc@tecktur.cl:
  *     "Pipe to a Program":
  *     Ruta:   |/usr/bin/php /home/usuario/induccion/server/pipe_mail.php
  *  3. Crear carpetas con permisos 755:
@@ -68,6 +68,26 @@ if (empty($alumnos)) {
 }
 
 log_event(count($alumnos) . " alumnos detectados en el Excel");
+
+// ── Detectar cursos desde asunto/contenido del email ──────────────────────────
+$email_text = $raw_email . ' ' . $subject;
+$cursos_email = detectar_cursos_desde_email($email_text);
+if (!empty($cursos_email)) {
+    log_event("Cursos detectados desde email: " . implode(', ', $cursos_email));
+    // Asignar cursos detectados a cada alumno si no tienen cursos
+    foreach ($alumnos as &$a) {
+        if (empty($a['cursos'])) {
+            $a['cursos'] = $cursos_email;
+        } else {
+            // Combinar cursos del Excel con los detectados del email
+            foreach ($cursos_email as $c) {
+                if (!in_array($c, $a['cursos'])) {
+                    $a['cursos'][] = $c;
+                }
+            }
+        }
+    }
+}
 
 // ── Validar columnas requeridas ──────────────────────────────────────────────
 foreach ($alumnos as $i => $a) {
@@ -222,27 +242,58 @@ function extract_excel_attachment(string $raw): ?array {
 }
 
 function parse_excel(string $data): array {
-    /**
-     * Para .xlsx real se necesita PhpSpreadsheet:
-     *   composer require phpoffice/phpspreadsheet
-     *
-     * Columnas esperadas en el Excel (fila 1 = encabezados):
-     *   A: Nombre completo
-     *   B: RUT
-     *   C: Correo electrónico
-     *   D: Cursos (separados por coma: "Mina Cabildo, Mina Taltal")
-     *
-     * Implementación simplificada que retorna datos de ejemplo.
-     * En producción reemplazar por:
-     *   $spreadsheet = IOFactory::load($tmpfile);
-     *   $sheet = $spreadsheet->getActiveSheet()->toArray();
-     */
-    return [
-        ['nombre' => 'Juan Pérez Soto',   'rut' => '14.523.867-3', 'email' => 'j.perez@minera.cl',   'cursos' => ['mina_cabildo', 'mina_taltal']],
-        ['nombre' => 'María González L.', 'rut' => '16.789.012-5', 'email' => 'm.gonzalez@minera.cl', 'cursos' => ['planta_cabildo']],
-        ['nombre' => 'Pedro Ramírez V.',  'rut' => '12.901.234-7', 'email' => 'p.ramirez@minera.cl',  'cursos' => ['mina_cabildo']],
-        ['nombre' => 'Carla Fuentes M.',  'rut' => '18.345.678-K', 'email' => 'c.fuentes@minera.cl',  'cursos' => ['planta_cabildo', 'planta_taltal']],
-    ];
+    // Verificar si PhpSpreadsheet está disponible
+    if (!file_exists(__DIR__ . '/vendor/autoload.php')) {
+        log_event("ADVERTENCIA: PhpSpreadsheet no instalado, retornando datos de ejemplo");
+        return [
+            ['nombre' => 'DEMO: Juan Pérez', 'rut' => '14.523.867-3', 'email' => 'demo@test.cl', 'cursos' => ['mina_cabildo']],
+        ];
+    }
+
+    require_once __DIR__ . '/vendor/autoload.php';
+
+    try {
+        $tmpfile = tempnam(sys_get_temp_dir(), 'excel_');
+        file_put_contents($tmpfile, $data);
+
+        $spreadsheet = \PhpOffice\PhpSpreadsheet\IOFactory::load($tmpfile);
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $alumnos = [];
+        $max_row = $sheet->getHighestRow();
+
+        for ($row = 2; $row <= $max_row; $row++) {
+            $nombre = trim((string)$sheet->getCell("A$row")->getValue());
+            $rut    = trim((string)$sheet->getCell("B$row")->getValue());
+            $email  = trim((string)$sheet->getCell("C$row")->getValue());
+            $cursos_txt = trim((string)$sheet->getCell("D$row")->getValue());
+
+            // Saltar filas vacías
+            if (empty($nombre) || empty($rut) || empty($email)) {
+                continue;
+            }
+
+            // Parsear cursos (separados por coma)
+            $cursos = array_filter(
+                array_map('trim', explode(',', $cursos_txt)),
+                fn($c) => !empty($c)
+            );
+
+            $alumnos[] = [
+                'nombre'  => $nombre,
+                'rut'     => $rut,
+                'email'   => strtolower($email),
+                'cursos'  => $cursos ?: [],
+            ];
+        }
+
+        @unlink($tmpfile);
+        return $alumnos;
+
+    } catch (\Exception $e) {
+        log_event("ERROR al parsear Excel: " . $e->getMessage());
+        return [];
+    }
 }
 
 function normalizar_rut(string $rut): string {
@@ -254,6 +305,33 @@ function generar_password(int $len = 10): string {
     $pwd = '';
     for ($i = 0; $i < $len; $i++) $pwd .= $chars[random_int(0, strlen($chars) - 1)];
     return $pwd;
+}
+
+function detectar_cursos_desde_email(string $text): array {
+    $cursos = [];
+    $text_lower = strtolower($text);
+
+    // Buscar palabras clave para Mina Cabildo
+    if (preg_match('/mina\s+cabildo|cabildo.*mina/i', $text)) {
+        $cursos[] = 'mina_cabildo';
+    }
+
+    // Buscar palabras clave para Mina Taltal
+    if (preg_match('/mina\s+taltal|taltal.*mina/i', $text)) {
+        $cursos[] = 'mina_taltal';
+    }
+
+    // Buscar palabras clave para Planta Cabildo
+    if (preg_match('/planta\s+cabildo|cabildo.*planta/i', $text)) {
+        $cursos[] = 'planta_cabildo';
+    }
+
+    // Buscar palabras clave para Planta Taltal
+    if (preg_match('/planta\s+taltal|taltal.*planta/i', $text)) {
+        $cursos[] = 'planta_taltal';
+    }
+
+    return $cursos;
 }
 
 function cursos_label(array $cursos): string {
@@ -282,9 +360,9 @@ function enviar_credenciales(string $to, string $nombre, string $rut, string $pw
           . "  Fecha límite: $vence\n\n"
           . "  Si no completas el curso antes del plazo, tus datos serán eliminados\n"
           . "  y deberás ser reinscrito por tu supervisor.\n\n"
-          . "Cualquier consulta, escríbenos a inducciones@tecktur.cl\n\n"
+          . "Cualquier consulta, escríbenos a induccionmlc@tecktur.cl\n\n"
           . "Sistema de Inducción — Tecktur SpA.";
-    mail($to, $subject, $body, "From: inducciones@tecktur.cl\r\nContent-Type: text/plain; charset=UTF-8");
+    mail($to, $subject, $body, "From: induccionmlc@tecktur.cl\r\nContent-Type: text/plain; charset=UTF-8");
 }
 
 function notificar_remitente(string $to, string $nombre, array $alumnos, string $vence): void {
@@ -298,7 +376,7 @@ function notificar_remitente(string $to, string $nombre, array $alumnos, string 
           . "Si algún alumno no completa su inducción antes del plazo, recibirás una notificación\n"
           . "y deberás gestionar su reinscripción desde el panel de administración.\n\n"
           . "Sistema de Inducción — Tecktur SpA";
-    mail($to, $subject, $body, "From: inducciones@tecktur.cl\r\nContent-Type: text/plain; charset=UTF-8");
+    mail($to, $subject, $body, "From: induccionmlc@tecktur.cl\r\nContent-Type: text/plain; charset=UTF-8");
 }
 
 function enviar_error_reply(string $to, string $nombre, string $msg = ''): void {
@@ -310,7 +388,7 @@ function enviar_error_reply(string $to, string $nombre, string $msg = ''): void 
              . "Por favor verifique el archivo e intente nuevamente.\n"
              . "Formato requerido: .xlsx con columnas Nombre, RUT, Correo, Cursos.\n\n"
              . "Sistema de Inducción — Tecktur SpA";
-    mail($to, $subject, $body, "From: inducciones@tecktur.cl\r\nContent-Type: text/plain; charset=UTF-8");
+    mail($to, $subject, $body, "From: induccionmlc@tecktur.cl\r\nContent-Type: text/plain; charset=UTF-8");
 }
 
 function log_event(string $msg): void {

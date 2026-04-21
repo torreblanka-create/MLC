@@ -8,3 +8,6 @@ npm-debug.log*
 .vite/
 build/
 .next/
+server/data/
+server/lib/
+docs/
