@@ -36,17 +36,41 @@ export default function LoginPage({ onLogin }) {
   const videoRef = useRef(null);
   const intervalRef = useRef(null);
 
-  const isAdmin = rut.startsWith('12');
-
-  const handleCredSubmit = () => {
+  const handleCredSubmit = async () => {
     if (!rut || rut.length < 9) { setError('Ingresa un RUT válido'); return; }
     if (!pass || pass.length < 4) { setError('Ingresa tu contraseña'); return; }
     setError('');
-    if (isAdmin || isReturning) {
-      setStep('success');
-      setTimeout(() => onLogin(isAdmin ? 'admin' : 'alumno'), 1200);
-    } else {
-      setStep('cedula');
+
+    try {
+      // Validate credentials with backend
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'login', rut, password: pass }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        setError(data.error || 'Credenciales inválidas');
+        return;
+      }
+
+      // Save token and role
+      localStorage.setItem('ind_auth_token', data.token);
+      localStorage.setItem('ind_user_role', data.role);
+      localStorage.setItem('ind_user_name', data.name);
+
+      // Admin goes straight to dashboard, first-time alumnos need ID verification
+      if (data.role === 'admin' || isReturning) {
+        setStep('success');
+        setTimeout(() => onLogin(data.role), 1200);
+      } else {
+        setStep('cedula');
+      }
+    } catch (err) {
+      setError('Error de conexión. Intenta nuevamente.');
+      console.error(err);
     }
   };
 
@@ -75,7 +99,8 @@ export default function LoginPage({ onLogin }) {
             videoRef.current.srcObject.getTracks().forEach(t => t.stop());
           setTimeout(() => {
             setStep('success');
-            setTimeout(() => onLogin(rut.startsWith('12') ? 'admin' : 'alumno'), 1200);
+            const role = localStorage.getItem('ind_user_role') || 'alumno';
+            setTimeout(() => onLogin(role), 1200);
           }, 600);
           return 100;
         }

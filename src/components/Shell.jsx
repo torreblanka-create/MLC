@@ -20,6 +20,13 @@ const alumnoLinks = [
 export default function Shell({ screen, onNav, role, children }) {
   const links = role === 'admin' ? adminLinks : alumnoLinks;
 
+  const handleLogout = () => {
+    localStorage.removeItem('ind_auth_token');
+    localStorage.removeItem('ind_user_role');
+    localStorage.removeItem('ind_user_name');
+    onNav('login');
+  };
+
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
       {/* Sidebar */}
@@ -66,7 +73,7 @@ export default function Shell({ screen, onNav, role, children }) {
           <div style={{ fontSize: 12, color: 'var(--text-muted)', padding: '0 6px 8px' }}>
             {role === 'admin' ? 'Admin GMLC' : 'Juan A. Pérez · 14.523.867-3'}
           </div>
-          <button onClick={() => onNav('login')} style={{
+          <button onClick={handleLogout} style={{
             display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', width: '100%',
             borderRadius: 8, border: 'none', cursor: 'pointer', background: 'transparent',
             color: 'var(--text-muted)', fontSize: 13, fontFamily: "'DM Sans', sans-serif",
