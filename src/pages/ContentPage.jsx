@@ -182,16 +182,46 @@ export default function ContentPage() {
     update({ files });
   };
 
+  const uploadFileToBlob = async (file) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const base64 = e.target.result.split(',')[1];
+        const response = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            data: base64,
+            moduleKey: key,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          const newFile = {
+            name: file.name,
+            size: (file.size / 1024 / 1024).toFixed(1) + ' MB',
+            url: result.url,
+          };
+          update({ files: [...(mod.files || []), newFile] });
+          setFileUploadStatus('success');
+          setTimeout(() => setFileUploadStatus(null), 3000);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err) {
+      console.error('Error uploading file:', err);
+      setFileUploadStatus('error');
+      setTimeout(() => setFileUploadStatus(null), 3000);
+    }
+  };
+
   const handleFileDrop = (e) => {
     e.preventDefault();
     const dropped = Array.from(e.dataTransfer?.files || []);
     if (!dropped.length) return;
-    const newFiles = dropped.map(f => ({ name: f.name, size: (f.size / 1024 / 1024).toFixed(1) + ' MB' }));
-    update({ files: [...(mod.files || []), ...newFiles] });
-
-    // Mostrar mensaje de confirmación
-    setFileUploadStatus('success');
-    setTimeout(() => setFileUploadStatus(null), 3000);
+    dropped.forEach(f => uploadFileToBlob(f));
   };
 
   const mockFileInput = () => {
@@ -475,12 +505,23 @@ export default function ContentPage() {
                   }}>
                     <Icon name="doc" size={16} color={C.copper} />
                     <div style={{ flex: 1, fontSize: 13, color: C.text }}>
-                      {f.name}
+                      {f.url ? (
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: C.copper, textDecoration: 'none', cursor: 'pointer' }}>
+                          {f.name}
+                        </a>
+                      ) : (
+                        f.name
+                      )}
                       <span style={{ color: C.textMuted, fontSize: 12, marginLeft: 8 }}>— {f.size}</span>
+                      {f.url && <span style={{ color: C.success, fontSize: 11, marginLeft: 8 }}>✓ Guardado</span>}
                     </div>
-                    <Btn size="sm" variant="ghost">
-                      <Icon name="upload" size={12} color={C.silver} />
-                    </Btn>
+                    {f.url && (
+                      <a href={f.url} target="_blank" rel="noopener noreferrer">
+                        <Btn size="sm" variant="ghost">
+                          <Icon name="download" size={12} color={C.silver} />
+                        </Btn>
+                      </a>
+                    )}
                     <Btn size="sm" variant="danger" onClick={() => removeFile(i)}>
                       <Icon name="x" size={12} color="white" />
                     </Btn>

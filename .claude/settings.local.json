@@ -7,7 +7,18 @@
       "Bash(npm run *)",
       "Bash(curl -s http://localhost:5173)",
       "mcp__Claude_Preview__preview_start",
-      "mcp__Claude_in_Chrome__tabs_context_mcp"
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -s -o /dev/null -w \"HTTP Status: %{http_code}\\\\n\" https://mlc-phi.vercel.app/)",
+      "Bash(curl -s -o /dev/null -w \"HTTP Status: %{http_code}\\\\n\" https://mlc-production.up.railway.app/)",
+      "mcp__scheduled-tasks__create_scheduled_task",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(gh repo *)",
+      "Bash(curl -s https://api.github.com/repos/torreblanka-create/MLC)",
+      "Bash(cat)",
+      "Bash(chmod +x /tmp/deploy-vercel.sh)",
+      "Read(//tmp/**)"
     ]
   }
 }

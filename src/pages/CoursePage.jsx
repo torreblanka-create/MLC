@@ -430,11 +430,29 @@ function AulaStyle({ activeModule, setActiveModule, maxModule, setMaxModule, onN
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {modContent.files.map((f, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '12px 16px', background: C.surface3, borderRadius: 8, border: `1px solid ${C.border}` }}>
-                    <Icon name="folder" size={18} color={C.copper} />
-                    <div style={{ flex: 1, fontSize: 14, color: C.text }}>{f.name} <span style={{ color: C.textMuted, fontSize: 12 }}>— {f.size}</span></div>
-                    <Btn size="sm" variant="ghost" onClick={() => downloadSimulated(f.name)}>
-                      <Icon name="upload" size={14} color={C.copper} /> Descargar
-                    </Btn>
+                    <Icon name="doc" size={18} color={C.copper} />
+                    <div style={{ flex: 1, fontSize: 14, color: C.text }}>
+                      {f.url ? (
+                        <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: C.copper, textDecoration: 'none', cursor: 'pointer' }}>
+                          {f.name}
+                        </a>
+                      ) : (
+                        f.name
+                      )}
+                      <span style={{ color: C.textMuted, fontSize: 12, marginLeft: 8 }}>— {f.size}</span>
+                      {f.url && <span style={{ color: C.success, fontSize: 11, marginLeft: 8 }}>✓</span>}
+                    </div>
+                    {f.url ? (
+                      <a href={f.url} target="_blank" rel="noopener noreferrer">
+                        <Btn size="sm" variant="ghost">
+                          <Icon name="download" size={14} color={C.copper} /> Descargar
+                        </Btn>
+                      </a>
+                    ) : (
+                      <Btn size="sm" variant="ghost" onClick={() => downloadSimulated(f.name)}>
+                        <Icon name="upload" size={14} color={C.copper} /> Descargar
+                      </Btn>
+                    )}
                   </div>
                 ))}
               </div>
@@ -587,15 +605,32 @@ export default function CoursePage({ courseStyle, onStyleChange, onNav, activeCo
   const [warnings, setWarnings] = useState(0);
   const [courseContent, setCourseContent] = useState({});
 
+  // Cargar contenido desde API (igual que ContentPage)
   useEffect(() => {
-    const saved = localStorage.getItem('gmlc_content');
-    if (saved) {
+    const loadContent = async () => {
       try {
-        setCourseContent(JSON.parse(saved));
-      } catch (e) {
-        console.error('Error parsing content', e);
+        // Intenta cargar desde Vercel API
+        const response = await fetch('/api/content?action=get');
+        const result = await response.json();
+        if (result.data && Object.keys(result.data).length > 0) {
+          setCourseContent(result.data);
+          return;
+        }
+      } catch (err) {
+        console.log('API no disponible, usando localStorage...');
       }
-    }
+
+      // Fallback a localStorage
+      const saved = localStorage.getItem('gmlc_content');
+      if (saved) {
+        try {
+          setCourseContent(JSON.parse(saved));
+        } catch (e) {
+          console.error('Error parsing content', e);
+        }
+      }
+    };
+    loadContent();
   }, []);
 
   useEffect(() => {
