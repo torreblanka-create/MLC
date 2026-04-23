@@ -30,7 +30,9 @@
       "Bash(git commit -m 'Fix: Mejorar manejo de errores en carga de archivos *)",
       "Bash(git commit -m 'Fix: Corregir parsing de body en API y manejo de respuestas *)",
       "Bash(git commit -m 'Fix: Reparar endpoints de API y variable faltante en LoginPage *)",
-      "Bash(git commit -m 'Fix: Implementar Vercel Blob Storage para uploads *)"
+      "Bash(git commit -m 'Fix: Implementar Vercel Blob Storage para uploads *)",
+      "Bash(git checkout *)",
+      "Bash(git commit -m 'Docs: Agregar guía de configuración Vercel Blob Storage *)"
     ]
   }
 }
