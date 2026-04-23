@@ -46,13 +46,10 @@ async function handleUpload(req, res) {
       });
     }
 
-    const safePath = `uploads/${moduleKey}/${safeName}`;
-    const blobUrl = new URL('https://blob.vercel-storage.com');
-    blobUrl.searchParams.set('filename', safePath);
-
     // Upload a Vercel Blob usando REST API
-    const uploadRes = await fetch(blobUrl.toString(), {
-      method: 'PUT',
+    // Vercel Blob auto-genera un nombre único
+    const uploadRes = await fetch('https://blob.vercel-storage.com', {
+      method: 'POST',
       headers: {
         'authorization': `Bearer ${token}`,
       },
