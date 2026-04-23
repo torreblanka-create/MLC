@@ -70,19 +70,11 @@ export default function ContentPage() {
   useEffect(() => {
     const loadContent = async () => {
       try {
-        // Cargar todo el contenido del servidor PHP
-        const allCourses = {};
-        for (const course of COURSES) {
-          for (let module = 0; module < MODULE_TITLES.length; module++) {
-            const response = await fetch(`/server/api/content.php?course=${course.id}&module=${module}`);
-            const result = await response.json();
-            if (result.ok && result.data) {
-              allCourses[`${course.id}_${module}`] = result.data;
-            }
-          }
-        }
-        if (Object.keys(allCourses).length > 0) {
-          setContent(allCourses);
+        // Cargar contenido desde API Vercel
+        const response = await fetch('/api/content?action=get');
+        const result = await response.json();
+        if (result.data && Object.keys(result.data).length > 0) {
+          setContent(result.data);
           setLoading(false);
           return;
         }
@@ -111,32 +103,13 @@ export default function ContentPage() {
       try {
         setSavingStatus('saving');
 
-        // Guardar cada módulo en el servidor PHP
-        let saveSuccess = false;
-        try {
-          for (const [key, moduleContent] of Object.entries(content)) {
-            const [course, moduleStr] = key.split('_');
-            const module = parseInt(moduleStr);
+        const response = await fetch('/api/content?action=save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: content, action: 'save' }),
+        });
 
-            const response = await fetch('/server/api/content.php', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                course,
-                module,
-                type: 'full',
-                data: moduleContent,
-              }),
-            });
-            if (response.ok) {
-              saveSuccess = true;
-            }
-          }
-        } catch (err) {
-          console.log('Server save failed, using localStorage fallback...', err);
-        }
-
-        if (saveSuccess) {
+        if (response.ok) {
           setSavingStatus('saved');
           setTimeout(() => setSavingStatus(null), 2000);
           return;

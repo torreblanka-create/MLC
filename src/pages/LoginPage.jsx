@@ -22,6 +22,7 @@ function formatRut(val) {
 
 export default function LoginPage({ onLogin }) {
   const isReturning = !!localStorage.getItem('ind_tutorial_seen');
+  const isAdmin = localStorage.getItem('ind_user_role') === 'admin';
 
   // Admin: credenciales → success (always)
   // Returning alumno: credenciales → success
