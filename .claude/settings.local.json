@@ -39,7 +39,10 @@
       "Bash(curl -s -H \"Authorization: Bearer $\\(vercel env pull --json)",
       "Bash(curl -s https://mlc-phi.vercel.app/)",
       "Bash(git commit -m 'Fix: Usar API REST de Vercel Blob directamente *)",
-      "Bash(git commit -m 'Fix: Agregar x-pathname header a Vercel Blob REST API *)"
+      "Bash(git commit -m 'Fix: Agregar x-pathname header a Vercel Blob REST API *)",
+      "Bash(node /tmp/test_upload.js)",
+      "Bash(curl -s https://mlc-phi.vercel.app/api/upload -X OPTIONS -H \"Access-Control-Allow-Origin: *\" -I)",
+      "Bash(git commit -m 'Fix: Usar query param filename en Vercel Blob API *)"
     ]
   }
 }
