@@ -605,19 +605,28 @@ export default function CoursePage({ courseStyle, onStyleChange, onNav, activeCo
   const [warnings, setWarnings] = useState(0);
   const [courseContent, setCourseContent] = useState({});
 
-  // Cargar contenido desde API (igual que ContentPage)
+  // Cargar contenido desde API (desde el servidor PHP)
   useEffect(() => {
     const loadContent = async () => {
       try {
-        // Intenta cargar desde Vercel API
-        const response = await fetch('/api/content?action=get');
-        const result = await response.json();
-        if (result.data && Object.keys(result.data).length > 0) {
-          setCourseContent(result.data);
+        // Cargar todos los módulos del curso desde el servidor PHP
+        const allModules = {};
+        const MODULE_COUNT = 8; // 8 módulos de contenido
+
+        for (let module = 0; module < MODULE_COUNT; module++) {
+          const response = await fetch(`/server/api/content.php?course=${activeCourse}&module=${module}`);
+          const result = await response.json();
+          if (result.ok && result.data) {
+            allModules[`${activeCourse}_${module}`] = result.data;
+          }
+        }
+
+        if (Object.keys(allModules).length > 0) {
+          setCourseContent(allModules);
           return;
         }
       } catch (err) {
-        console.log('API no disponible, usando localStorage...');
+        console.log('Server API no disponible, usando localStorage...');
       }
 
       // Fallback a localStorage
@@ -631,7 +640,7 @@ export default function CoursePage({ courseStyle, onStyleChange, onNav, activeCo
       }
     };
     loadContent();
-  }, []);
+  }, [activeCourse]);
 
   useEffect(() => {
     const onBlur  = () => { setTabWarning(true); setWarnings(w => w + 1); };

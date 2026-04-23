@@ -70,16 +70,24 @@ export default function ContentPage() {
   useEffect(() => {
     const loadContent = async () => {
       try {
-        // Intenta primero Vercel API, fallback a localStorage
-        const response = await fetch('/api/content?action=get');
-        const result = await response.json();
-        if (result.data && Object.keys(result.data).length > 0) {
-          setContent(result.data);
+        // Cargar todo el contenido del servidor PHP
+        const allCourses = {};
+        for (const course of COURSES) {
+          for (let module = 0; module < MODULE_TITLES.length; module++) {
+            const response = await fetch(`/server/api/content.php?course=${course.id}&module=${module}`);
+            const result = await response.json();
+            if (result.ok && result.data) {
+              allCourses[`${course.id}_${module}`] = result.data;
+            }
+          }
+        }
+        if (Object.keys(allCourses).length > 0) {
+          setContent(allCourses);
           setLoading(false);
           return;
         }
       } catch (err) {
-        console.log('Vercel API not available, checking localStorage...');
+        console.log('Server API not available:', err);
       }
 
       // Fallback a localStorage
@@ -103,20 +111,35 @@ export default function ContentPage() {
       try {
         setSavingStatus('saving');
 
-        // Guardar en servidor Vercel
+        // Guardar cada módulo en el servidor PHP
+        let saveSuccess = false;
         try {
-          const response = await fetch('/api/content?action=save', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ data: content }),
-          });
-          if (response.ok) {
-            setSavingStatus('saved');
-            setTimeout(() => setSavingStatus(null), 2000);
-            return;
+          for (const [key, moduleContent] of Object.entries(content)) {
+            const [course, moduleStr] = key.split('_');
+            const module = parseInt(moduleStr);
+
+            const response = await fetch('/server/api/content.php', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                course,
+                module,
+                type: 'full',
+                data: moduleContent,
+              }),
+            });
+            if (response.ok) {
+              saveSuccess = true;
+            }
           }
         } catch (err) {
-          console.log('Server save failed, using localStorage fallback...');
+          console.log('Server save failed, using localStorage fallback...', err);
+        }
+
+        if (saveSuccess) {
+          setSavingStatus('saved');
+          setTimeout(() => setSavingStatus(null), 2000);
+          return;
         }
 
         // Fallback a localStorage si el servidor no está disponible

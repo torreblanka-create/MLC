@@ -69,7 +69,7 @@ switch ($method) {
 
         $course = trim($body['course'] ?? '');
         $module = (int)($body['module'] ?? 0);
-        $type   = trim($body['type'] ?? '');   // video | audio | text | file
+        $type   = trim($body['type'] ?? '');   // video | audio | text | file | full
 
         if (!$course || !$type) {
             http_response_code(400);
@@ -80,6 +80,12 @@ switch ($method) {
         $content = loadContent($course, $module);
 
         switch ($type) {
+            case 'full':
+                // Guardar el contenido completo del módulo (desde React)
+                if (isset($body['data']) && is_array($body['data'])) {
+                    $content = $body['data'];
+                }
+                break;
             case 'video':
                 $content['videoUrl'] = trim($body['url'] ?? '');
                 break;
