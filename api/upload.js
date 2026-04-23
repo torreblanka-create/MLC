@@ -16,7 +16,15 @@ export default async function handler(req, res) {
 
 async function handleUpload(req, res) {
   try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+    let body = req.body;
+
+    // En Vercel, req.body puede ser string, Buffer, o objeto
+    if (Buffer.isBuffer(body)) {
+      body = JSON.parse(body.toString('utf-8'));
+    } else if (typeof body === 'string') {
+      body = JSON.parse(body);
+    }
+
     const { filename, data, moduleKey } = body;
 
     if (!filename || !data || !moduleKey) {
