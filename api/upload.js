@@ -1,11 +1,24 @@
 /**
- * Vercel Blob Storage - API para guardar archivos PDF
+ * File Upload API - Guardar archivos PDF en servidor local
  * Endpoint: /api/upload
  * Método: POST
- * Body: FormData con archivo
+ * Body: { filename, data (base64), moduleKey }
+ *
+ * Los archivos se guardan en /uploads/{moduleKey}/{filename}
+ * y se sirven a través de /uploads/{path}
  */
 
-import { put, del } from '@vercel/blob';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+
+// Asegurar que el directorio existe
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -27,26 +40,40 @@ export default async function handler(req, res) {
 
 async function handleUpload(req, res) {
   try {
-    // req.body contiene el archivo en formato base64
     const { filename, data, moduleKey } = req.body;
 
     if (!filename || !data || !moduleKey) {
       return res.status(400).json({ error: 'Faltan parámetros: filename, data, moduleKey' });
     }
 
+    // Validar que moduleKey no contiene caracteres peligrosos
+    if (!/^[a-z0-9_]+$/.test(moduleKey)) {
+      return res.status(400).json({ error: 'moduleKey inválido' });
+    }
+
+    // Crear directorio del módulo
+    const moduleDir = path.join(uploadsDir, moduleKey);
+    if (!fs.existsSync(moduleDir)) {
+      fs.mkdirSync(moduleDir, { recursive: true });
+    }
+
     // Decodificar base64
     const buffer = Buffer.from(data, 'base64');
 
-    // Subir a Vercel Blob
-    const blob = await put(`gmlc/${moduleKey}/${filename}`, buffer, {
-      access: 'public',
-      contentType: 'application/pdf',
-    });
+    // Sanitizar nombre de archivo
+    const safeName = path.basename(filename).replace(/[^a-zA-Z0-9._-]/g, '_');
+    const filePath = path.join(moduleDir, safeName);
+
+    // Guardar archivo
+    fs.writeFileSync(filePath, buffer);
+
+    // Generar URL accesible
+    const url = `/uploads/${moduleKey}/${safeName}`;
 
     return res.status(200).json({
       status: 'uploaded',
-      filename,
-      url: blob.url,
+      filename: safeName,
+      url,
       size: buffer.length,
     });
   } catch (error) {
@@ -63,7 +90,23 @@ async function handleDelete(req, res) {
       return res.status(400).json({ error: 'URL requerida' });
     }
 
-    await del(url);
+    // Extraer ruta relativa de la URL
+    const match = url.match(/\/uploads\/(.+)$/);
+    if (!match) {
+      return res.status(400).json({ error: 'URL inválida' });
+    }
+
+    const filePath = path.join(uploadsDir, match[1]);
+
+    // Verificar que el archivo está dentro de uploadsDir (seguridad)
+    if (!filePath.startsWith(uploadsDir)) {
+      return res.status(403).json({ error: 'Acceso denegado' });
+    }
+
+    // Eliminar archivo si existe
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
 
     return res.status(200).json({ status: 'deleted' });
   } catch (error) {
