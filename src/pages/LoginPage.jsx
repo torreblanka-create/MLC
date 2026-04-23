@@ -213,9 +213,6 @@ export default function LoginPage({ onLogin }) {
                 </div>
               </div>
             )}
-            <div style={{ marginTop: 14, textAlign: 'center', fontSize: 11, color: '#6B7E95' }}>
-              <span style={{ color: '#D4924A' }}>Admin demo:</span> RUT comenzando en 12 · <span style={{ color: '#D4924A' }}>Alumno:</span> cualquier otro
-            </div>
           </div>
         )}
 
