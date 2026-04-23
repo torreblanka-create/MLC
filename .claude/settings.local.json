@@ -32,7 +32,13 @@
       "Bash(git commit -m 'Fix: Reparar endpoints de API y variable faltante en LoginPage *)",
       "Bash(git commit -m 'Fix: Implementar Vercel Blob Storage para uploads *)",
       "Bash(git checkout *)",
-      "Bash(git commit -m 'Docs: Agregar guía de configuración Vercel Blob Storage *)"
+      "Bash(git commit -m 'Docs: Agregar guía de configuración Vercel Blob Storage *)",
+      "Bash(vercel whoami *)",
+      "Bash(vercel project *)",
+      "Bash(vercel env *)",
+      "Bash(curl -s -H \"Authorization: Bearer $\\(vercel env pull --json)",
+      "Bash(curl -s https://mlc-phi.vercel.app/)",
+      "Bash(git commit -m 'Fix: Usar API REST de Vercel Blob directamente *)"
     ]
   }
 }
