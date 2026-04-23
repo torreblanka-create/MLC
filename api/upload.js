@@ -53,6 +53,7 @@ async function handleUpload(req, res) {
       method: 'PUT',
       headers: {
         'authorization': `Bearer ${token}`,
+        'x-pathname': blobPath,
         'x-add-random': 'true',
       },
       body: buffer,

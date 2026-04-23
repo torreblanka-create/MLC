@@ -38,7 +38,8 @@
       "Bash(vercel env *)",
       "Bash(curl -s -H \"Authorization: Bearer $\\(vercel env pull --json)",
       "Bash(curl -s https://mlc-phi.vercel.app/)",
-      "Bash(git commit -m 'Fix: Usar API REST de Vercel Blob directamente *)"
+      "Bash(git commit -m 'Fix: Usar API REST de Vercel Blob directamente *)",
+      "Bash(git commit -m 'Fix: Agregar x-pathname header a Vercel Blob REST API *)"
     ]
   }
 }
