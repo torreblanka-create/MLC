@@ -1,10 +1,8 @@
 /**
- * File Upload API - Guardar en Vercel Blob Storage usando REST API
- * Endpoint: /api/upload
- * Body: { filename, data (base64), moduleKey }
+ * File Upload API - Guardar archivos como data URLs
+ * Nota: Los archivos persisten en el localStorage de la app
+ * Para almacenamiento persistente real, usa Vercel KV + esta API
  */
-
-export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,7 +11,6 @@ export default async function handler(req, res) {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method === 'POST') return handleUpload(req, res);
-  if (req.method === 'DELETE') return handleDelete(req, res);
   return res.status(405).json({ error: 'Method not allowed' });
 }
 
@@ -23,7 +20,7 @@ async function handleUpload(req, res) {
     const { filename, data, moduleKey } = body;
 
     if (!filename || !data || !moduleKey) {
-      return res.status(400).json({ error: 'Faltan: filename, data, moduleKey' });
+      return res.status(400).json({ error: 'Faltan parámetros' });
     }
 
     if (!/^[a-z0-9_]+$/.test(moduleKey)) {
@@ -36,79 +33,34 @@ async function handleUpload(req, res) {
 
     const buffer = Buffer.from(data, 'base64');
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const mimeType = getMimeType(filename);
 
-    if (!token) {
-      console.warn('BLOB_READ_WRITE_TOKEN not configured');
-      return res.status(500).json({
-        error: 'Token no configurado',
-        details: 'BLOB_READ_WRITE_TOKEN no está en variables de entorno',
-      });
-    }
-
-    // Upload a Vercel Blob usando REST API
-    // Vercel Blob auto-genera un nombre único
-    const uploadRes = await fetch('https://blob.vercel-storage.com', {
-      method: 'POST',
-      headers: {
-        'authorization': `Bearer ${token}`,
-      },
-      body: buffer,
-    });
-
-    if (!uploadRes.ok) {
-      const errorText = await uploadRes.text();
-      console.error('Vercel Blob error:', uploadRes.status, errorText);
-      return res.status(500).json({
-        error: 'Error en Blob Storage',
-        details: `${uploadRes.status}: ${errorText.substring(0, 100)}`,
-      });
-    }
-
-    const result = await uploadRes.json();
-    const url = result.url;
-
-    console.log('✓ Uploaded to Blob:', url);
+    // Crear data URL (funciona en navegador, persiste en localStorage)
+    const dataUrl = `data:${mimeType};base64,${data}`;
 
     return res.status(200).json({
       status: 'uploaded',
       ok: true,
       filename: safeName,
-      url,
+      url: dataUrl,
       size: buffer.length,
+      method: 'data-url',
+      note: 'Archivo almacenado como data URL en cliente',
     });
   } catch (error) {
     console.error('Upload error:', error.message);
-    return res.status(500).json({
-      error: 'Error al subir',
-      details: error.message,
-    });
+    return res.status(500).json({ error: error.message });
   }
 }
 
-async function handleDelete(req, res) {
-  try {
-    const body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-    const { url } = body;
-
-    if (!url) {
-      return res.status(400).json({ error: 'URL requerida' });
-    }
-
-    // Vercel Blob API para eliminar
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token || !url.includes('blob.vercel-storage.com')) {
-      return res.status(200).json({ ok: true });
-    }
-
-    const deleteRes = await fetch(url, {
-      method: 'DELETE',
-      headers: { 'authorization': `Bearer ${token}` },
-    });
-
-    return res.status(200).json({ ok: deleteRes.ok });
-  } catch (error) {
-    console.error('Delete error:', error.message);
-    return res.status(500).json({ error: error.message });
-  }
+function getMimeType(filename) {
+  const ext = filename.split('.').pop()?.toLowerCase();
+  const types = {
+    pdf: 'application/pdf',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    png: 'image/png',
+    gif: 'image/gif',
+  };
+  return types[ext] || 'application/octet-stream';
 }
