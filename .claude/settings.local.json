@@ -18,7 +18,16 @@
       "Bash(curl -s https://api.github.com/repos/torreblanka-create/MLC)",
       "Bash(cat)",
       "Bash(chmod +x /tmp/deploy-vercel.sh)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(xargs grep *)",
+      "Bash(vercel deploy *)",
+      "Bash(vercel list *)",
+      "Bash(vercel deployments *)",
+      "Bash(vercel --help)",
+      "Bash(vercel ls *)",
+      "Bash(git commit -m 'Fix: Validar selección de archivos en carga de documentos *)",
+      "Bash(vercel remove *)",
+      "Bash(git commit -m 'Fix: Mejorar manejo de errores en carga de archivos *)"
     ]
   }
 }

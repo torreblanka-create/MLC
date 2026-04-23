@@ -11,3 +11,4 @@ build/
 server/data/
 server/lib/
 docs/
+.vercel

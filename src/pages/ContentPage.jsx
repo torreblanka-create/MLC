@@ -207,22 +207,41 @@ export default function ContentPage() {
   };
 
   const uploadFileToBlob = async (file) => {
+    setFileUploadStatus('uploading');
     try {
       const reader = new FileReader();
+      reader.onerror = () => {
+        console.error('FileReader error:', reader.error);
+        setFileUploadStatus('error');
+        setTimeout(() => setFileUploadStatus(null), 3000);
+      };
       reader.onload = async (e) => {
-        const base64 = e.target.result.split(',')[1];
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            filename: file.name,
-            data: base64,
-            moduleKey: key,
-          }),
-        });
+        try {
+          const base64 = e.target.result.split(',')[1];
+          if (!base64) {
+            throw new Error('Failed to read file');
+          }
 
-        if (response.ok) {
+          const response = await fetch('/api/upload', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: file.name,
+              data: base64,
+              moduleKey: key,
+            }),
+          });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+            throw new Error(errorData.error || `Upload failed: ${response.status}`);
+          }
+
           const result = await response.json();
+          if (!result.url) {
+            throw new Error('No URL returned from server');
+          }
+
           const newFile = {
             name: file.name,
             size: (file.size / 1024 / 1024).toFixed(1) + ' MB',
@@ -231,11 +250,15 @@ export default function ContentPage() {
           update({ files: [...(mod.files || []), newFile] });
           setFileUploadStatus('success');
           setTimeout(() => setFileUploadStatus(null), 3000);
+        } catch (err) {
+          console.error('Upload processing error:', err);
+          setFileUploadStatus('error');
+          setTimeout(() => setFileUploadStatus(null), 4000);
         }
       };
       reader.readAsDataURL(file);
     } catch (err) {
-      console.error('Error uploading file:', err);
+      console.error('File read error:', err);
       setFileUploadStatus('error');
       setTimeout(() => setFileUploadStatus(null), 3000);
     }
@@ -498,6 +521,15 @@ export default function ContentPage() {
             </div>
 
             {/* Upload notifications */}
+            {fileUploadStatus === 'uploading' && (
+              <div style={{
+                background: C.warning + '15', border: `1px solid ${C.warning}44`, borderRadius: 8,
+                padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8
+              }}>
+                <div style={{ width: 16, height: 16, borderRadius: '50%', border: `2px solid ${C.warning}`, borderTop: `2px solid transparent`, animation: 'spin 1s linear infinite' }} />
+                <span style={{ fontSize: 13, color: C.warning, fontWeight: 600 }}>Cargando archivo...</span>
+              </div>
+            )}
             {fileUploadStatus === 'success' && (
               <div style={{
                 background: C.success + '15', border: `1px solid ${C.success}44`, borderRadius: 8,
@@ -513,7 +545,7 @@ export default function ContentPage() {
                 padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8
               }}>
                 <Icon name="warning" size={16} color={C.danger} />
-                <span style={{ fontSize: 13, color: C.danger, fontWeight: 600 }}>Por favor selecciona un archivo para subir</span>
+                <span style={{ fontSize: 13, color: C.danger, fontWeight: 600 }}>Error al cargar archivo. Intenta de nuevo.</span>
               </div>
             )}
 
