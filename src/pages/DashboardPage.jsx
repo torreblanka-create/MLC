@@ -1,7 +1,8 @@
+import { useEffect, useState } from 'react';
 import { Btn, Card, Badge, Tag, ProgressBar, Icon } from '../components/Shared';
 const C = { copper: 'var(--copper)', text: 'var(--text)', textMuted: 'var(--text-muted)', danger: 'var(--danger)', warning: 'var(--warning)', success: 'var(--success)', surface3: 'var(--surface3)' };
 
-const cursos = [
+const cursosBase = [
   { id: 'mina_cabildo',   title: 'Inducción Mina Cabildo',    estado: 'en_progreso', pct: 45, intentos: 0 },
   { id: 'mina_taltal',    title: 'Inducción Mina Taltal',     estado: 'bloqueado',   pct: 0,  intentos: 0 },
   { id: 'planta_cabildo', title: 'Inducción Planta Cabildo',  estado: 'bloqueado',   pct: 0,  intentos: 0 },
@@ -67,6 +68,35 @@ function PlazoBanner({ dias }) {
 }
 
 export default function DashboardPage({ onNav }) {
+  const [courseEnabled, setCourseEnabled] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/content?action=get', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(result => {
+        if (result?.data?.courseEnabled) setCourseEnabled(result.data.courseEnabled);
+      })
+      .catch(() => {
+        try {
+          const saved = localStorage.getItem('gmlc_content');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.courseEnabled) setCourseEnabled(parsed.courseEnabled);
+          }
+        } catch {}
+      });
+  }, []);
+
+  const cursos = cursosBase.map(c => {
+    if (courseEnabled && courseEnabled[c.id] === true && c.estado === 'bloqueado') {
+      return { ...c, estado: 'en_progreso' };
+    }
+    if (courseEnabled && courseEnabled[c.id] === false) {
+      return { ...c, estado: 'bloqueado', pct: 0 };
+    }
+    return c;
+  });
+
   return (
     <div style={{ padding: 40, maxWidth: 900 }}>
       <div style={{ marginBottom: 28 }}>

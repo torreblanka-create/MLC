@@ -58,87 +58,87 @@ const initialContent = {
   },
 };
 
+const DEFAULT_ENABLED = {
+  mina_cabildo: true,
+  mina_taltal: false,
+  planta_cabildo: false,
+  planta_taltal: false,
+};
+
 export default function ContentPage() {
   const [activeCourse, setActiveCourse] = useState('mina_cabildo');
   const [activeModule, setActiveModule] = useState(0);
   const [content, setContent] = useState(initialContent);
+  const [courseEnabled, setCourseEnabled] = useState(DEFAULT_ENABLED);
   const [loading, setLoading] = useState(true);
   const [savingStatus, setSavingStatus] = useState(null);
   const [fileUploadStatus, setFileUploadStatus] = useState(null);
+  const [storageMode, setStorageMode] = useState(null);
+  const [newAudioUrl, setNewAudioUrl] = useState('');
+  const fileInputRef = useRef(null);
 
-  // Cargar contenido desde el servidor al iniciar
   useEffect(() => {
     const loadContent = async () => {
       try {
-        // Cargar contenido desde API Vercel
-        const response = await fetch('/api/content?action=get');
+        const response = await fetch('/api/content?action=get', { cache: 'no-store' });
         const result = await response.json();
-        if (result.data && Object.keys(result.data).length > 0) {
-          setContent(result.data);
-          setLoading(false);
-          return;
+        setStorageMode(result.storage || 'none');
+        const remoteContent = result?.data?.content;
+        const remoteEnabled = result?.data?.courseEnabled;
+        if (remoteContent && Object.keys(remoteContent).length > 0) {
+          setContent(remoteContent);
+        }
+        if (remoteEnabled && Object.keys(remoteEnabled).length > 0) {
+          setCourseEnabled({ ...DEFAULT_ENABLED, ...remoteEnabled });
         }
       } catch (err) {
-        console.log('Server API not available:', err);
-      }
-
-      // Fallback a localStorage
-      try {
-        const saved = localStorage.getItem('gmlc_content');
-        if (saved) {
-          setContent(JSON.parse(saved));
-        }
-      } catch (err) {
-        console.error('Error loading from localStorage:', err);
+        console.warn('Content API no disponible, usando localStorage:', err);
+        try {
+          const saved = localStorage.getItem('gmlc_content');
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed.content) setContent(parsed.content);
+            if (parsed.courseEnabled) setCourseEnabled({ ...DEFAULT_ENABLED, ...parsed.courseEnabled });
+          }
+        } catch (e) { console.error('localStorage parse error:', e); }
       }
       setLoading(false);
     };
     loadContent();
   }, []);
 
-  // Guardar contenido en el servidor cuando cambie
   useEffect(() => {
     if (loading) return;
     const saveContent = async () => {
+      const payload = { content, courseEnabled };
+      try { localStorage.setItem('gmlc_content', JSON.stringify(payload)); } catch {}
       try {
         setSavingStatus('saving');
-
         const response = await fetch('/api/content?action=save', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: content, action: 'save' }),
+          body: JSON.stringify({ action: 'save', data: payload }),
         });
-
-        if (response.ok) {
+        const result = await response.json().catch(() => ({}));
+        if (response.ok && result.status === 'saved') {
           setSavingStatus('saved');
-          setTimeout(() => setSavingStatus(null), 2000);
-          return;
+          setStorageMode(result.storage || storageMode);
+        } else {
+          setSavingStatus('error');
+          console.error('save failed:', result);
         }
-
-        // Fallback a localStorage si el servidor no está disponible
-        localStorage.setItem('gmlc_content', JSON.stringify(content));
-        setSavingStatus('saved');
-        setTimeout(() => setSavingStatus(null), 2000);
+        setTimeout(() => setSavingStatus(null), 2500);
       } catch (err) {
         console.error('Error saving content:', err);
         setSavingStatus('error');
+        setTimeout(() => setSavingStatus(null), 3000);
       }
     };
-    const timer = setTimeout(saveContent, 1000);
+    const timer = setTimeout(saveContent, 900);
     return () => clearTimeout(timer);
-  }, [content, loading]);
-  const [newAudioUrl, setNewAudioUrl] = useState('');
-  const [connectionStatus, setConnectionStatus] = useState(null);
-  const [courseEnabled, setCourseEnabled] = useState({
-    mina_cabildo: true,
-    mina_taltal: false,
-    planta_cabildo: false,
-    planta_taltal: false,
-  });
-  const fileInputRef = useRef(null);
+  }, [content, courseEnabled, loading]);
 
   const handleSaveGeneral = () => {
-    // Al guardar, se habilita automáticamente para el alumno según requerimiento
     setCourseEnabled(prev => ({ ...prev, [activeCourse]: true }));
     alert(`Cambios guardados exitosamente.\nEl curso "${COURSES.find(c => c.id === activeCourse)?.label}" ahora está habilitado para los alumnos.`);
   };
@@ -303,6 +303,16 @@ export default function ContentPage() {
               <span style={{ fontSize: 12, color: C.success, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
                 <span style={{ width: 4, height: 4, borderRadius: '50%', background: C.success, display: 'inline-block' }} />
                 Guardado
+              </span>
+            )}
+            {savingStatus === 'error' && (
+              <span style={{ fontSize: 12, color: C.danger, fontWeight: 600 }} title="Revisa BLOB_READ_WRITE_TOKEN en Vercel">
+                ⚠ Error al guardar
+              </span>
+            )}
+            {storageMode && storageMode !== 'blob' && (
+              <span style={{ fontSize: 11, color: C.warning, fontWeight: 600, padding: '2px 8px', background: C.warning + '15', borderRadius: 10 }} title="Configura BLOB_READ_WRITE_TOKEN en Vercel para persistencia multi-usuario">
+                ⚠ Solo en este navegador
               </span>
             )}
           </div>
@@ -570,7 +580,7 @@ export default function ContentPage() {
                     <Icon name="doc" size={16} color={C.copper} />
                     <div style={{ flex: 1, fontSize: 13, color: C.text }}>
                       {f.url ? (
-                        <a href={f.url} target="_blank" rel="noopener noreferrer" style={{ color: C.copper, textDecoration: 'none', cursor: 'pointer' }}>
+                        <a href={f.url} download={f.name} target="_blank" rel="noopener noreferrer" style={{ color: C.copper, textDecoration: 'none', cursor: 'pointer' }}>
                           {f.name}
                         </a>
                       ) : (
@@ -580,7 +590,7 @@ export default function ContentPage() {
                       {f.url && <span style={{ color: C.success, fontSize: 11, marginLeft: 8 }}>✓ Guardado</span>}
                     </div>
                     {f.url && (
-                      <a href={f.url} target="_blank" rel="noopener noreferrer">
+                      <a href={f.url} download={f.name} target="_blank" rel="noopener noreferrer">
                         <Btn size="sm" variant="ghost">
                           <Icon name="download" size={12} color={C.silver} />
                         </Btn>

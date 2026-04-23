@@ -443,14 +443,14 @@ function AulaStyle({ activeModule, setActiveModule, maxModule, setMaxModule, onN
                       {f.url && <span style={{ color: C.success, fontSize: 11, marginLeft: 8 }}>✓</span>}
                     </div>
                     {f.url ? (
-                      <a href={f.url} target="_blank" rel="noopener noreferrer">
+                      <a href={f.url} download={f.name} target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none' }}>
                         <Btn size="sm" variant="ghost">
                           <Icon name="download" size={14} color={C.copper} /> Descargar
                         </Btn>
                       </a>
                     ) : (
                       <Btn size="sm" variant="ghost" onClick={() => downloadSimulated(f.name)}>
-                        <Icon name="upload" size={14} color={C.copper} /> Descargar
+                        <Icon name="download" size={14} color={C.copper} /> Descargar
                       </Btn>
                     )}
                   </div>
@@ -604,40 +604,37 @@ export default function CoursePage({ courseStyle, onStyleChange, onNav, activeCo
   const [tabWarning, setTabWarning] = useState(false);
   const [warnings, setWarnings] = useState(0);
   const [courseContent, setCourseContent] = useState({});
+  const [courseEnabled, setCourseEnabled] = useState({});
+  const [contentLoaded, setContentLoaded] = useState(false);
 
-  // Cargar contenido desde API (desde el servidor PHP)
   useEffect(() => {
     const loadContent = async () => {
       try {
-        // Cargar todos los módulos del curso desde el servidor PHP
-        const allModules = {};
-        const MODULE_COUNT = 8; // 8 módulos de contenido
-
-        for (let module = 0; module < MODULE_COUNT; module++) {
-          const response = await fetch(`/server/api/content.php?course=${activeCourse}&module=${module}`);
-          const result = await response.json();
-          if (result.ok && result.data) {
-            allModules[`${activeCourse}_${module}`] = result.data;
-          }
+        const response = await fetch('/api/content?action=get', { cache: 'no-store' });
+        const result = await response.json();
+        const remoteContent = result?.data?.content;
+        const remoteEnabled = result?.data?.courseEnabled;
+        if (remoteContent && Object.keys(remoteContent).length > 0) {
+          setCourseContent(remoteContent);
         }
-
-        if (Object.keys(allModules).length > 0) {
-          setCourseContent(allModules);
-          return;
-        }
+        if (remoteEnabled) setCourseEnabled(remoteEnabled);
+        setContentLoaded(true);
+        return;
       } catch (err) {
-        console.log('Server API no disponible, usando localStorage...');
+        console.warn('Content API no disponible, usando localStorage:', err);
       }
 
-      // Fallback a localStorage
-      const saved = localStorage.getItem('gmlc_content');
-      if (saved) {
-        try {
-          setCourseContent(JSON.parse(saved));
-        } catch (e) {
-          console.error('Error parsing content', e);
+      try {
+        const saved = localStorage.getItem('gmlc_content');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed.content) setCourseContent(parsed.content);
+          if (parsed.courseEnabled) setCourseEnabled(parsed.courseEnabled);
         }
+      } catch (e) {
+        console.error('Error parsing content', e);
       }
+      setContentLoaded(true);
     };
     loadContent();
   }, [activeCourse]);
@@ -649,6 +646,27 @@ export default function CoursePage({ courseStyle, onStyleChange, onNav, activeCo
     window.addEventListener('focus', onFocus);
     return () => { window.removeEventListener('blur', onBlur); window.removeEventListener('focus', onFocus); };
   }, []);
+
+  const isDisabled = contentLoaded && courseEnabled && Object.keys(courseEnabled).length > 0 && courseEnabled[activeCourse] === false;
+
+  if (isDisabled) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '70vh', padding: 40 }}>
+        <div style={{ textAlign: 'center', maxWidth: 480 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: C.warning + '22', border: `1px solid ${C.warning}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>
+            <Icon name="lock" size={28} color={C.warning} />
+          </div>
+          <h2 style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 28, fontWeight: 800, color: C.text, marginBottom: 12 }}>
+            Curso no disponible aún
+          </h2>
+          <p style={{ fontSize: 14, color: C.textMuted, lineHeight: 1.5, marginBottom: 24 }}>
+            Este curso todavía no ha sido habilitado por el administrador. Vuelve más tarde o contacta a tu supervisor.
+          </p>
+          <Btn variant="ghost" onClick={() => onNav('dashboard')}>← Volver al panel</Btn>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>
