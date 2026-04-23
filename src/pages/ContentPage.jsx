@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Btn, Card, Badge, Icon } from '../components/Shared';
 const C = { copper: 'var(--copper)', text: 'var(--text)', textMuted: 'var(--text-muted)', danger: 'var(--danger)', warning: 'var(--warning)', success: 'var(--success)', surface: 'var(--surface)', surface2: 'var(--surface2)', surface3: 'var(--surface3)', border: 'var(--border)', silver: 'var(--silver)', silverLt: 'var(--silver-lt)', copperLt: 'var(--copper-lt)' };
 
@@ -162,6 +162,7 @@ export default function ContentPage() {
     planta_cabildo: false,
     planta_taltal: false,
   });
+  const fileInputRef = useRef(null);
 
   const handleSaveGeneral = () => {
     // Al guardar, se habilita automáticamente para el alumno según requerimiento
@@ -247,13 +248,21 @@ export default function ContentPage() {
     dropped.forEach(f => uploadFileToBlob(f));
   };
 
-  const mockFileInput = () => {
-    const mockFile = { name: 'Documento_Nuevo.pdf', size: '0.9 MB' };
-    update({ files: [...(mod.files || []), mockFile] });
+  const handleFileInputChange = (e) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) {
+      setFileUploadStatus('error');
+      setTimeout(() => setFileUploadStatus(null), 3000);
+      return;
+    }
+    files.forEach(f => uploadFileToBlob(f));
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
-    // Mostrar mensaje de confirmación
-    setFileUploadStatus('success');
-    setTimeout(() => setFileUploadStatus(null), 3000);
+  const openFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   const inputStyle = {
@@ -488,7 +497,7 @@ export default function ContentPage() {
               <Icon name="folder" size={16} color={C.copper} /> Archivos adjuntos (PDF, imágenes)
             </div>
 
-            {/* Upload success notification */}
+            {/* Upload notifications */}
             {fileUploadStatus === 'success' && (
               <div style={{
                 background: C.success + '15', border: `1px solid ${C.success}44`, borderRadius: 8,
@@ -498,12 +507,21 @@ export default function ContentPage() {
                 <span style={{ fontSize: 13, color: C.success, fontWeight: 600 }}>Archivo cargado correctamente</span>
               </div>
             )}
+            {fileUploadStatus === 'error' && (
+              <div style={{
+                background: C.danger + '15', border: `1px solid ${C.danger}44`, borderRadius: 8,
+                padding: '12px 14px', marginBottom: 14, display: 'flex', alignItems: 'center', gap: 8
+              }}>
+                <Icon name="warning" size={16} color={C.danger} />
+                <span style={{ fontSize: 13, color: C.danger, fontWeight: 600 }}>Por favor selecciona un archivo para subir</span>
+              </div>
+            )}
 
             {/* Drop zone */}
             <div
               onDrop={handleFileDrop}
               onDragOver={e => e.preventDefault()}
-              onClick={mockFileInput}
+              onClick={openFileInput}
               style={{
                 border: `2px dashed ${C.border}`, borderRadius: 10, padding: '28px 20px',
                 textAlign: 'center', cursor: 'pointer', marginBottom: 16,
@@ -518,6 +536,14 @@ export default function ContentPage() {
                 Acepta: .pdf, .jpg, .png, .docx
               </div>
             </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.docx"
+              onChange={handleFileInputChange}
+              style={{ display: 'none' }}
+            />
             {/* File list */}
             {(mod.files || []).length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
