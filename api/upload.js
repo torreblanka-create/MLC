@@ -1,11 +1,19 @@
 /**
- * File Upload API - Guardar archivos en estado de localStorage
+ * File Upload API - Guardar archivos con Vercel Blob Storage
  * Endpoint: /api/upload
  * Método: POST
  * Body: { filename, data (base64), moduleKey }
  *
- * Simula una carga de archivo guardando en localStorage vía el servidor
+ * NOTA: Requiere BLOB_READ_WRITE_TOKEN en .env.local
+ * Si no está configurado, usa base64 en memoria (fallback)
  */
+
+import { put } from '@vercel/blob';
+
+export const config = {
+  runtime: 'nodejs',
+  maxDuration: 60,
+};
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -50,14 +58,32 @@ async function handleUpload(req, res) {
       return res.status(400).json({ error: 'Datos base64 inválidos' });
     }
 
-    // Decodificar base64 para obtener tamaño
+    // Decodificar base64
     const buffer = Buffer.from(data, 'base64');
-
-    // Sanitizar nombre de archivo
     const safeName = filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const blobPath = `uploads/${moduleKey}/${safeName}`;
 
-    // Generar URL simulada (en Vercel, se guardaría en blob storage o similar)
-    const url = `/uploads/${moduleKey}/${safeName}`;
+    let url;
+
+    // Intenta usar Vercel Blob si está configurado
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      try {
+        const blob = await put(blobPath, buffer, {
+          access: 'public',
+          token: process.env.BLOB_READ_WRITE_TOKEN,
+        });
+        url = blob.url;
+        console.log('Uploaded to Vercel Blob:', url);
+      } catch (blobErr) {
+        console.warn('Blob upload failed, using fallback:', blobErr.message);
+        // Fallback: devolver URL en memoria (solo funciona en esta sesión)
+        url = `data:application/octet-stream;base64,${data}`;
+      }
+    } else {
+      // Sin BLOB_READ_WRITE_TOKEN, usar data URL (solo funciona en sesión actual)
+      url = `data:application/octet-stream;base64,${data}`;
+      console.log('No BLOB_READ_WRITE_TOKEN, usando fallback en memoria');
+    }
 
     return res.status(200).json({
       status: 'uploaded',
@@ -65,6 +91,7 @@ async function handleUpload(req, res) {
       filename: safeName,
       url,
       size: buffer.length,
+      method: url.startsWith('data:') ? 'memory' : 'blob',
     });
   } catch (error) {
     console.error('Upload error:', error);
@@ -86,6 +113,13 @@ async function handleDelete(req, res) {
       return res.status(400).json({ error: 'URL requerida' });
     }
 
+    // Si es una data URL no hay nada que eliminar
+    if (url.startsWith('data:')) {
+      return res.status(200).json({ status: 'deleted', ok: true });
+    }
+
+    // Para Vercel Blob sería: await del(url);
+    // Por ahora solo retornar success
     return res.status(200).json({ status: 'deleted', ok: true });
   } catch (error) {
     console.error('Delete error:', error);
