@@ -217,35 +217,45 @@ export default function ContentPage() {
       };
       reader.onload = async (e) => {
         try {
-          const base64 = e.target.result.split(',')[1];
+          const base64Data = e.target.result;
+          const base64 = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
+
           if (!base64) {
             throw new Error('Failed to read file');
           }
 
+          const uploadData = {
+            filename: file.name,
+            data: base64,
+            moduleKey: key,
+          };
+
+          console.log('Uploading:', { filename: file.name, moduleKey: key, dataLength: base64.length });
+
           const response = await fetch('/api/upload', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              filename: file.name,
-              data: base64,
-              moduleKey: key,
-            }),
+            body: JSON.stringify(uploadData),
           });
 
+          const result = await response.json();
+
+          console.log('Upload response:', { status: response.status, ok: response.ok, result });
+
           if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
-            throw new Error(errorData.error || `Upload failed: ${response.status}`);
+            throw new Error(result.error || result.details || `Upload failed: ${response.status}`);
           }
 
-          const result = await response.json();
-          if (!result.url) {
+          if (!result.url && !result.ok) {
             throw new Error('No URL returned from server');
           }
+
+          const fileUrl = result.url || `/uploads/${key}/${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
 
           const newFile = {
             name: file.name,
             size: (file.size / 1024 / 1024).toFixed(1) + ' MB',
-            url: result.url,
+            url: fileUrl,
           };
           update({ files: [...(mod.files || []), newFile] });
           setFileUploadStatus('success');

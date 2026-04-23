@@ -27,7 +27,8 @@
       "Bash(vercel ls *)",
       "Bash(git commit -m 'Fix: Validar selección de archivos en carga de documentos *)",
       "Bash(vercel remove *)",
-      "Bash(git commit -m 'Fix: Mejorar manejo de errores en carga de archivos *)"
+      "Bash(git commit -m 'Fix: Mejorar manejo de errores en carga de archivos *)",
+      "Bash(git commit -m 'Fix: Corregir parsing de body en API y manejo de respuestas *)"
     ]
   }
 }
