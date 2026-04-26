@@ -36,8 +36,10 @@ export default function Shell({ screen, onNav, role, children }) {
       }}>
         {/* Brand */}
         <div style={{ padding: '22px 20px 18px', borderBottom: `1px solid var(--border)`, textAlign: 'center' }}>
-          <img src="/assets/logo-lc.png" alt="Grupo Minero Las Cenizas"
-            style={{ width: 195, display: 'block', margin: '0 auto 10px' }} />
+          <a href="https://www.cenizas.cl/" target="_blank" rel="noopener noreferrer" style={{ display: 'block' }}>
+            <img src="/assets/logo-lc.png" alt="Grupo Minero Las Cenizas"
+              style={{ width: 195, display: 'block', margin: '0 auto 10px', cursor: 'pointer' }} />
+          </a>
         </div>
 
         {/* Role badge */}
@@ -81,10 +83,10 @@ export default function Shell({ screen, onNav, role, children }) {
             <Icon name="logout" size={14} color="var(--text-muted)" /> Cerrar sesión
           </button>
           <div style={{ marginTop: 10, borderTop: `1px solid var(--border)`, paddingTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1 }}>
-              <img src="/assets/logo-tecktur.jpg" alt="Tecktur SpA." style={{ height: 35, borderRadius: 4, opacity: 0.85 }} />
+            <a href="https://tecktur.cl/" target="_blank" rel="noopener noreferrer" style={{ display: 'flex', alignItems: 'center', gap: 8, flex: 1, textDecoration: 'none' }}>
+              <img src="/assets/logo-tecktur.jpg" alt="Tecktur SpA." style={{ height: 35, borderRadius: 4, opacity: 0.85, cursor: 'pointer' }} />
               <span style={{ fontSize: 12, color: 'var(--text-muted)', fontWeight: 500 }}>Tecktur</span>
-            </div>
+            </a>
             <ThemeToggle />
           </div>
         </div>
